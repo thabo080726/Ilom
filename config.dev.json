@@ -24,7 +24,7 @@
     "whiteListIds": [],
     "notes": "if you enable this feature, only the ids in the whiteListIds section can use the bot"
   },
-  "nickNameBot": "𝐆𝐡𝐨𝐬𝐭 𝐁𝐥𝐚𝐜𝐤_00",
+  "nickNameBot": "𝐆𝐡𝐨𝐬𝐭 𝐁𝐥𝐚𝐜𝐤_01",
   "prefix": "+",
   "database": {
     "type": "sqlite",
@@ -62,7 +62,7 @@
     }
   },
   "autoRestart": {
-    "time": false,
+    "time": 3600000,
     "notes": "you can set time is interval with milisecond or cron time, example: 1000, 10000, 60000, 3600000, 86400000, 0 0 * * *,... docs: https://www.npmjs.com/package/node-cron. If you set time is 0 or false or null, the bot will not auto restart"
   },
   "autoUptime": {
