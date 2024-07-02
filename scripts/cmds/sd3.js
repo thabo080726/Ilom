@@ -1,4 +1,4 @@
- const fetch = require('node-fetch');
+const fetch = require('node-fetch');
 const fs = require("fs-extra");
 const path = require("path");
 const axios = require("axios");
