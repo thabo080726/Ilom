@@ -1,55 +1,71 @@
-const axios = require("axios");
-const fs = require("fs-extra");
-const request = require("request");
-const path = require("path");
+const axios = require('axios');
+const fs = require('fs-extra');
+const path = require('path');
 
-module.exports = {
-  config: {
-    name: "pin", 
-    aliases: ["pinterest"], 
-    version: "1.0.2", 
-    author: "KSHITIZ", 
-    role: 0,
-    countDown: 5,
-    shortDescription:{
-      en: "Search for images on Pinterest"}, 
-    longDescription:{
-      en:""}, 
-    category: "Search", 
-    guide: {
-      en: "{prefix}pinterest <search query> -<number of images>"
-    }
-  }, 
+const config = {
+  name: 'pinterest',
+  aliases: ['pin'],
+  version: '1.0',
+  author: 'softrilez',
+  role: 0,
+  countDown: 10,
+  category: 'utility',
+  shortDescription: { en: 'Search for images on Pinterest.' },
+  longDescription: { en: 'Search for images on Pinterest and display them.' },
+  guide: { en: '{pn} [keyword] | [number of images]\n{pn} funny cats | 5' },
+};
 
-  onStart: async function({ api, event, args }) {
-    try {
-      const keySearch = args.join(" ");
-      if (!keySearch.includes("-")) {
-        return api.sendMessage(`Please enter the search query and number of images to return in the format: ${config.guide.en}`, event.threadID, event.messageID);
+const onStart = async ({ api, args, message, event, usersData }) => {
+  if (!event.isGroup) return;
+
+  const [searchQuery, numImages = 1] = args.join(" ").split("|").map(item => item.trim());
+  const { senderID } = event;
+  const userData = await usersData.get(senderID);
+
+  if (numImages > userData.money) {
+    return message.reply(`You don't have enough quota for ${numImages} images.\n\nUse ;daily to get more quota.`);
+  }
+
+  if (!searchQuery) {
+    return message.reply("Please enter a keyword\nExample: ;pin funny stickers | 8");
+  }
+
+  try {
+    await usersData.set(senderID, { money: userData.money - numImages, data: userData.data });
+    message.reaction("🆗", event.messageID);
+
+    const response = await axios.get("https://samirxpikachu.onrender.com/pinterest", {
+      params: { query: searchQuery, number: Math.min(parseInt(numImages), 15) },
+    });
+
+    const { result } = response.data;
+
+    if (result && result.length > 0) {
+      const downloadFolder = "tmp";
+      const imagePaths = [];
+
+      for (const [index, imageUrl] of result.entries()) {
+        const imagePath = path.join(__dirname, downloadFolder, `image_${index + 1}.png`);
+        const imageResponse = await axios.get(imageUrl, { responseType: "arraybuffer" });
+        await fs.writeFile(imagePath, imageResponse.data);
+        imagePaths.push(imagePath);
       }
-      const keySearchs = keySearch.substr(0, keySearch.indexOf('-')).trim();
-      const numberSearch = parseInt(keySearch.split("-").pop().trim()) || 6;
 
-      const res = await axios.get(`https://api-dien.kira1011.repl.co/pinterest?search=${encodeURIComponent(keySearchs)}`);
-      const data = res.data.data;
-      const imgData = [];
-
-      for (let i = 0; i < Math.min(numberSearch, data.length); i++) {
-        const imgResponse = await axios.get(data[i], { responseType: 'arraybuffer' });
-        const imgPath = path.join(__dirname, 'cache', `${i + 1}.jpg`);
-        await fs.outputFile(imgPath, imgResponse.data);
-        imgData.push(fs.createReadStream(imgPath));
-      }
-
-      await api.sendMessage({
-        attachment: imgData,
-        body: `Here are the top ${imgData.length} image results for "${keySearchs}":`
-      }, event.threadID, event.messageID);
-
-      await fs.remove(path.join(__dirname, 'cache'));
-    } catch (error) {
-      console.error(error);
-      return api.sendMessage(`please add to your keysearch -10 \ ex: pin -cat -10`, event.threadID, event.messageID);
+      message.reply({
+        body: `Here are your images!`,
+        attachment: imagePaths.map(imagePath => fs.createReadStream(imagePath)),
+      }, async () => {
+        for (const imagePath of imagePaths) {
+          await fs.unlink(imagePath);
+        }
+      });
+    } else {
+      message.reply("No images found 🗿");
     }
+  } catch (error) {
+    console.error(error);
+    message.reply("Couldn't find anything 🗿🤦🏻‍♂");
   }
 };
+
+module.exports = { config, onStart };
