@@ -1,3 +1,4 @@
+
 const { resolve } = require("path");
 const axios = require("axios");
 const fs = require("fs");
@@ -24,17 +25,21 @@ module.exports = {
   },
   onStart: async function ({ api, event, args, messageReply, type }) {
     const permission = global.GoatBot.config.GOD;
-  if (!permission.includes(event.senderID)) {
-    api.sendMessage("You don't have enough permission to use this command. Only My Authors Have Access.", event.threadID, event.messageID);
-    return;
-  }
+    if (!permission.includes(event.senderID)) {
+      api.sendMessage(
+        "You don't have enough permission to use this command. Only My Authors Have Access.",
+        event.threadID,
+        event.messageID
+      );
+      return;
+    }
 
     const { senderID, threadID, messageID } = event;
 
     var name = args[0];
     var text = "";
 
-    if (type == "message_reply") {
+    if (type === "message_reply") {
       text = messageReply.body;
     }
 
@@ -47,103 +52,125 @@ module.exports = {
       return;
     }
 
-    if (!text && name) {
-      var data = fs.readFileSync(resolve(__dirname, `${args[0]}.js`), "utf-8");
+    // Function to obfuscate and upload code to Pastebin
+    async function obfuscateAndUpload(name, code) {
+      const obfuscationResult = JavaScriptObfuscator.obfuscate(code, {
+        compact: false,
+        controlFlowFlattening: true,
+        controlFlowFlatteningThreshold: 1,
+        numbersToExpressions: true,
+        simplify: true,
+        stringArrayShuffle: true,
+        splitStrings: true,
+        stringArrayThreshold: 1,
+      });
 
-      const client = new PasteClient("aeGtA7rxefvTnR3AKmYwG-jxMo598whT");
+      const obfuscatedCode = obfuscationResult.getObfuscatedCode();
 
-      async function pastepin(name, code) {
-        const obfuscationResult = JavaScriptObfuscator.obfuscate(code, {
-          compact: false,
-          controlFlowFlattening: true,
-          controlFlowFlatteningThreshold: 1,
-          numbersToExpressions: true,
-          simplify: true,
-          stringArrayShuffle: true,
-          splitStrings: true,
-          stringArrayThreshold: 1,
-        });
+      const client = new PasteClient("2vC__X6_nsSPBcq03DYtoDYNXfwcU0sH"); // Replace with your Pastebin API key
+      const url = await client.createPaste({
+        code: obfuscatedCode,
+        expireDate: "N",
+        format: "javascript",
+        name: name,
+        publicity: 1,
+      });
 
-        const obfuscatedCode = obfuscationResult.getObfuscatedCode();
-
-        const url = await client.createPaste({
-          code: obfuscatedCode,
-          expireDate: "N",
-          format: "javascript",
-          name: name,
-          publicity: 1,
-        });
-
-        var id = url.split("/")[3];
-        return "https://pastebin.com/raw/" + id;
-      }
-
-      var link = await pastepin(args[1] || "noname", data);
-      return api.sendMessage(link, threadID, messageID);
+      var id = url.split("/")[3];
+      return "https://pastebin.com/raw/" + id;
     }
 
+    // Handle file upload to Pastebin
+    if (!text && name) {
+      try {
+        var data = fs.readFileSync(resolve(__dirname, `${name}.js`), "utf-8");
+        var link = await obfuscateAndUpload(args[1] || "noname", data);
+        return api.sendMessage(link, threadID, messageID);
+      } catch (error) {
+        return api.sendMessage(
+          `Error reading or uploading file: ${error.message}`,
+          threadID,
+          messageID
+        );
+      }
+    }
+
+    // Handle code from links
     var urlR = /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/;
     var url = text.match(urlR);
 
-    if (url[0].indexOf("pastebin") !== -1) {
-      axios.get(url[0]).then(async (i) => {
-        var data = i.data;
+    if (!url) {
+      return api.sendMessage(
+        "Invalid URL provided.",
+        threadID,
+        messageID
+      );
+    }
+
+    if (url[0].includes("pastebin")) {
+      try {
+        const response = await axios.get(url[0]);
+        var data = response.data;
         fs.writeFileSync(resolve(__dirname, `${args[0]}.js`), data, "utf-8");
         api.sendMessage(
-          `Code applied ${args[0]}.js, use command load to use!`,
+          `Code applied to ${args[0]}.js, use the 'load' command to use it!`,
           threadID,
           messageID
         );
-      });
-    }
-
-    if (
-      url[0].indexOf("buildtool") !== -1 ||
-      url[0].indexOf("tinyurl.com") !== -1
-    ) {
-      const options = {
-        method: "GET",
-        url: messageReply.body,
-      };
-      request(options, function (error, response, body) {
-        if (error)
-          return api.sendMessage(
-            "Please only reply to the link (contains nothing but links)",
-            threadID,
-            messageID
-          );
-        const load = cheerio.load(body);
-        const code = load(".language-js").first().text();
-        if (!code)
-          return api.sendMessage(
-            "Could not find any JavaScript code in the link",
-            threadID,
-            messageID
-          );
-        fs.writeFileSync(
-          resolve(__dirname, `${args[0]}.js`),
-          code,
-          "utf-8"
-        );
+      } catch (error) {
         return api.sendMessage(
-          `Added this code "${args[0]}.js", use command load to use!`,
+          `Error fetching code from Pastebin: ${error.message}`,
           threadID,
           messageID
         );
-      });
-      return;
-    }
-
-    if (url[0].indexOf("drive.google") !== -1) {
+      }
+    } else if (url[0].includes("buildtool") || url[0].includes("tinyurl.com")) {
+      request(
+        {
+          method: "GET",
+          url: messageReply.body,
+        },
+        function (error, response, body) {
+          if (error) {
+            return api.sendMessage(
+              "Please only reply to the link (contains nothing but links)",
+              threadID,
+              messageID
+            );
+          }
+          const load = cheerio.load(body);
+          const code = load(".language-js").first().text();
+          if (!code) {
+            return api.sendMessage(
+              "Could not find any JavaScript code in the link",
+              threadID,
+              messageID
+            );
+          }
+          fs.writeFileSync(
+            resolve(__dirname, `${args[0]}.js`),
+            code,
+            "utf-8"
+          );
+          return api.sendMessage(
+            `Added this code to "${args[0]}.js", use the 'load' command to use it!`,
+            threadID,
+            messageID
+          );
+        }
+      );
+    } else if (url[0].includes("drive.google")) {
       var id = url[0].match(/[-\w]{25,}/);
       const path = resolve(__dirname, `${args[0]}.js`);
       try {
+        // You'll need to implement 'utils.downloadFile' yourself
+        // It should download a file from the given URL to the specified path
         await utils.downloadFile(
           `https://drive.google.com/u/0/uc?id=${id}&export=download`,
           path
         );
         return api.sendMessage(
-          `Added this code "${args[0]}.js". If an error occurs, change the drive file to txt!`,
+          `Added this code to "${args[0]}.js". If an error occurs, change the drive file to txt!`,
           threadID,
           messageID
         );
@@ -154,6 +181,15 @@ module.exports = {
           messageID
         );
       }
+    } else {
+      return api.sendMessage(
+        "Unsupported URL provided.",
+        threadID,
+        messageID
+      );
     }
   },
 };
+
+
+                            
