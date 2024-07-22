@@ -18,7 +18,7 @@ module.exports = {
 
   onStart: ({}) => {},
   onChat: async ({ api, event }) => { 
-    const alias = ['sing3','terry sing', 'music'];
+    const alias = ['sing','music','song'];
     if (alias.some(a => event.body.toLowerCase().startsWith(a))) {
         const input = event.body;
         const data = input.split(" ");
