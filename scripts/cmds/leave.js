@@ -6,7 +6,7 @@ module.exports = {
     name: "leave",
     aliases: ["l"],
     version: "1.0",
-    author: "Sandy",
+    author: "Raphael scholar",
     countDown: 5,
     role: 2,
     shortDescription: "bot will leave gc",
@@ -25,6 +25,6 @@ module.exports = {
  } else {
  id = parseInt(args.join(" "));
  }
- return api.sendMessage('goodbye gays', id, () => api.removeUserFromGroup(api.getCurrentUserID(), id))
+ return api.sendMessage('goodbye friends 🥺', id, () => api.removeUserFromGroup(api.getCurrentUserID(), id))
     }
   };
