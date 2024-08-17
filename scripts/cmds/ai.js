@@ -1,6 +1,6 @@
 const axios = require('axios');
 const UPoLPrefix = [
-  '*ai',
+  '-ai',
   'ai',
   '/ai',
   'bot',
@@ -13,7 +13,7 @@ const UPoLPrefix = [
     version: '1.2.1',
     role: 0,
     category: 'AI',
-    author: 'UPoL 🌸',
+    author: 'Raphael scholar',
     shortDescription: '',
     longDescription: '',
   },
