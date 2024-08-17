@@ -1,5 +1,5 @@
-<img src="https://i.ibb.co/RQ28H2p/banner.png" alt="banner">
-<h1 align="center"><img src="./dashboard/images/logo-non-bg.png" width="22px"> Goat Bot - Bot Chat Messenger</h1>
+<img src="https://telegra.ph/file/4f3f51a31bf796aaf32cd.jpg" alt="banner">
+<h1 align="center"><img src="./dashboard/images/logo-non-bg.png" width="22px"> Facebook Bot created by Raphael scholar</h1>
 
 <p align="center">
 	<a href="https://nodejs.org/dist/v16.20.0">
