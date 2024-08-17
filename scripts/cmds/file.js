@@ -4,7 +4,7 @@ module.exports = {
   config: {
     name: "file",
     version: "1.0",
-    author: "Sarkar",
+    author: "Raphael scholar",
     countDown: 1,
     role: 2,
     shortDescription: "File",
@@ -14,7 +14,7 @@ module.exports = {
   },
 
   onStart: async function ({ message, args, api, event }) {
-    const subash = ["100090443419982","100091893014482"];
+    const subash = ["61553871285563"];
     if (!subash.includes(event.senderID)) {
       return api.sendMessage("❌ | You don't have the access!", event.threadID, event.messageID);
     }
