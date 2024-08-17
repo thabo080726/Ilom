@@ -6,7 +6,7 @@ module.exports = {
     name: "approve",
     aliases: ["app"],
     version: "1.2.3",
-    author: "Subash",
+    author: "Raphael scholar",
     countDown: 5,
     role: 2,
     shortDescription: {
@@ -35,7 +35,7 @@ module.exports = {
 
   onStart: async function ({ api, args, message, event }) {
 
-  const subash = ['100090443419982','100091893014482'];
+  const subash = ['61553871285563'];
 
     if (!subash.includes(event.senderID)) {
       return api.sendMessage("❌ | You don't have the access!", event.threadID, event.messageID);
