@@ -3,7 +3,7 @@ const axios = require("axios");
 const path = require("path");
 const { getPrefix } = global.utils;
 const { commands, aliases } = global.GoatBot;
-const doNotDelete = "【 https://facebook.com/the.king.of.ghost.black】";
+const doNotDelete = "【 https://www.facebook.com/profile.php?id=61553871285563】";
 /** 
 * @author NTKhang
 * @author: do not delete it
@@ -14,7 +14,7 @@ module.exports = {
 	config: {
 		name: "help",
 		version: "1.18",
-		author: "NTKhang",// edited by Elohime hatake
+		author: "NTKhang",// edited by Raphael scholar
 		countDown: 5,
 		role: 0,
 		shortDescription: {
@@ -113,7 +113,7 @@ module.exports = {
 				+ "\n✪ %6"
 				+ "\n╰─────────────⦿",
 			help2: "%1╭──────────⦿"
-				+ "\n│ 【𝐂𝐌𝐃】「%2」"     + "\n│ 【𝐔𝐒𝐀𝐆𝐄】「%3𝐇𝐄𝐋𝐏⁌𝐂𝐌𝐃𝐍𝐀𝐌𝐄⁍」\n│【𝐎𝐖𝐍𝐄𝐑】「 𝐄𝐋𝐎𝐇𝐈𝐌𝐄 𝐇𝐀𝐓𝐀𝐊𝐄」 "
+				+ "\n│ 【𝐂𝐌𝐃】「%2」"     + "\n│ 【𝐔𝐒𝐀𝐆𝐄】「%3𝐇𝐄𝐋𝐏⁌𝐂𝐌𝐃𝐍𝐀𝐌𝐄⁍」\n│【𝐎𝐖𝐍𝐄𝐑】「 Raphael scholar 🙃」 "
 				+ "\n╰─────────────⦿\n╭─────────────⦿\n│%4\n╰────────────⦿",
 			commandNotFound: "Command \"%1\" does not exist",
 			getInfoCommand: "╭────⦿ NAME ──────⦿"
