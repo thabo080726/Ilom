@@ -1,17 +1,39 @@
+const axios = require('axios');
+
+const TINYURL_API_KEY = 'CJ6S79EFBLLF1lYl42XzpZjliuU7aloHsM2JIoJVABYHpujQkBMvvxpld7YY';
+
+async function shortenURL(url) {
+  try {
+    const response = await axios.post('https://api.tinyurl.com/create', {
+      url: url,
+      domain: 'tiny.one'
+    }, {
+      headers: {
+        Authorization: `Bearer ${TINYURL_API_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    return response.data.data.tiny_url;
+  } catch (error) {
+    console.error(`Error shortening URL: ${error.message}`);
+    return null;
+  }
+}
+
 module.exports = {
   config: {
     name: "getlink",
-    version: "1.0",
-    author: "AceGun",
+    version: "1.1",
+    author: "Raphael ilom",
     countDown: 5,
     role: 0,
-    shortDescription: "",
+    shortDescription: "Fetch and shorten image, audio, and video URLs.",
     longDescription: {
-      en: ".",
+      en: "Fetch and shorten image, audio, and video URLs using TinyURL.",
     },
     category: "media",
     guide: {
-      en: "{prefix} <reply with img or vid>",
+      en: "{prefix}getlink <reply with img or vid>",
     },
   },
 
@@ -19,9 +41,22 @@ module.exports = {
     const { messageReply } = event;
 
     if (event.type !== "message_reply" || !messageReply.attachments || messageReply.attachments.length !== 1) {
-      return api.sendMessage(getText("invalidFormat"), event.threadID, event.messageID);
+      return api.sendMessage("Please reply to a single image, audio, or video attachment.", event.threadID, event.messageID);
     }
 
-    return api.sendMessage(messageReply.attachments[0].url, event.threadID, event.messageID);
+    const attachment = messageReply.attachments[0];
+    const url = attachment.url;
+
+    try {
+      const shortURL = await shortenURL(url);
+      if (shortURL) {
+        api.sendMessage(`Shortened URL: ${shortURL}`, event.threadID, event.messageID);
+      } else {
+        api.sendMessage("Failed to shorten the URL.", event.threadID, event.messageID);
+      }
+    } catch (error) {
+      console.error(`Error: ${error.message}`);
+      api.sendMessage("An error occurred while processing your request.", event.threadID, event.messageID);
+    }
   }
 };
