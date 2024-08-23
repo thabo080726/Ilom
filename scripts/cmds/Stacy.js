@@ -8,7 +8,7 @@ module.exports.config = {
   version: 1.1,
   credits: "Raphael ilom",
   cooldowns: 2,
-  usePrefix: false,
+  usePrefix: true,
   description: "stacy (query)",
   commandCategory: "AI",
   usages: "[question]"
