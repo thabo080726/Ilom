@@ -286,3 +286,80 @@ function sendPeriodicTip(api, threadID) {
 }
 
 setInterval(() => {
+  for (const threadID in userData) {
+    sendPeriodicTip(api, threadID);
+  }
+}, 24 * 60 * 60 * 1000); // Send tips every 24 hours
+
+// New feature: User feedback
+function handleUserFeedback(feedback, userId) {
+  const profile = getUserProfile(userId);
+  if (!profile.feedback) {
+    profile.feedback = [];
+  }
+  profile.feedback.push(feedback);
+  saveUserData();
+  return "Thank you for your feedback! We appreciate your input to help improve our service.";
+}
+
+// New feature: Conversation summarization
+async function summarizeConversation(userId) {
+  const profile = getUserProfile(userId);
+  const conversation = profile.history.join('\n');
+  const summary = await geminiAPI(`Please summarize the following conversation:\n${conversation}`, userId);
+  return summary;
+}
+
+// Enhanced onStart function
+onStart: async function ({ api, event, args, message }) {
+  const { threadID, senderID, messageID } = event;
+  const input = args.join(' ');
+
+  if (!input) {
+    return message.reply(getGreetingMessage(senderID));
+  }
+
+  if (input.startsWith('!')) {
+    const [command, ...commandArgs] = input.slice(1).split(' ');
+    switch (command) {
+      case 'clear':
+      case 'setname':
+      case 'help':
+        const result = handleCommand(command, commandArgs, senderID);
+        return message.reply(result);
+      case 'feedback':
+        const feedback = commandArgs.join(' ');
+        return message.reply(handleUserFeedback(feedback, senderID));
+      case 'summary':
+        const summary = await summarizeConversation(senderID);
+        return message.reply(`Here's a summary of our conversation:\n${summary}`);
+      default:
+        return message.reply("Unknown command. Type '!help' for a list of available commands.");
+    }
+  }
+
+  const aiResponse = await getAIResponse(input, senderID);
+  return message.reply(aiResponse);
+},
+
+// New feature: Error handling and logging
+function logError(error, context) {
+  console.error(`Error in ${context}:`, error);
+  // In a production environment, you might want to log this to a file or external service
+}
+
+// Enhance geminiAPI function with better error handling
+async function geminiAPI(prompt, userId, retries = 0) {
+  if (!isAuthorized(userId)) {
+    return "I'm sorry, but you're not authorized to use this service.";
+  }
+
+  try {
+    const response = await axios.post('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent', {
+      contents: [{ parts: [{ text: prompt }] }],
+      safetySettings: [
+        { category: "HARM_CATEGORY_DANGEROUS", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+        { category: "HARM_CATEGORY_
