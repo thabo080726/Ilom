@@ -458,3 +458,105 @@ async function getAIResponse(input, userId) {
   const userProfile = getUserProfile(userId);
   const context = userProfile.contextHistory ? userProfile.contextHistory.map(c => `User: ${c.input}\nAI: ${c.response}`).join('\n') : '';
   const sentiment = await analyzeSentiment(input);
+  const language = await detectLanguage(input);
+
+const fullPrompt = `
+  Context: ${context}
+  User Input: ${input}
+  Detected Sentiment: ${sentiment}
+  Detected Language: ${language}
+  
+  Please provide a response that takes into account the user's sentiment, language, and previous context.
+  AI:`;
+
+let response = await geminiAPI(fullPrompt, userId);
+response = generatePersonalizedResponse(userId, response);
+manageConversationContext(userId, input, response);
+return response;
+}
+
+// New feature: Multi-language support
+const translations = {
+  en: {
+    greeting: "Hello! How can I help you today?",
+    farewell: "Goodbye! Have a great day!",
+    // Add more translations as needed
+  },
+  es: {
+    greeting: "¡Hola! ¿Cómo puedo ayudarte hoy?",
+    farewell: "¡Adiós! ¡Que tengas un buen día!",
+    // Add more translations as needed
+  },
+  // Add more languages as needed
+};
+
+function getTranslation(key, language) {
+  return translations[language]?.[key] || translations.en[key];
+}
+
+// New feature: User preferences
+function setUserLanguagePreference(userId, language) {
+  const profile = getUserProfile(userId);
+  profile.preferences.language = language;
+  saveUserData();
+}
+
+// Enhanced onStart function with multi-language support and more features
+onStart: async function ({ api, event, args, message }) {
+  const { threadID, senderID, messageID } = event;
+  const input = args.join(' ');
+
+  trackUserEngagement(senderID, 'command');
+
+  const userProfile = getUserProfile(senderID);
+  const userLanguage = userProfile.preferences.language || 'en';
+
+  if (!input) {
+    return message.reply(getTranslation('greeting', userLanguage));
+  }
+
+  if (input.startsWith('!')) {
+    const [command, ...commandArgs] = input.slice(1).split(' ');
+    switch (command) {
+      case 'clear':
+      case 'setname':
+      case 'help':
+        const result = handleCommand(command, commandArgs, senderID);
+        return message.reply(result);
+      case 'feedback':
+        const feedback = commandArgs.join(' ');
+        return message.reply(handleUserFeedback(feedback, senderID));
+      case 'summary':
+        const summary = await summarizeConversation(senderID);
+        return message.reply(`Here's a summary of our conversation:\n${summary}`);
+      case 'recommend':
+        const recommendation = await getPersonalizedRecommendation(senderID);
+        return message.reply(`Here's a personalized recommendation for you:\n${recommendation}`);
+      case 'setlanguage':
+        const newLanguage = commandArgs[0];
+        setUserLanguagePreference(senderID, newLanguage);
+        return message.reply(`Language preference set to ${newLanguage}`);
+      default:
+        return message.reply("Unknown command. Type '!help' for a list of available commands.");
+    }
+  }
+
+  const aiResponse = await getAIResponse(input, senderID);
+  return message.reply(aiResponse);
+},
+
+// New feature: Conversation analytics
+function analyzeConversation(userId) {
+  const profile = getUserProfile(userId);
+  const analytics = {
+    totalInteractions: profile.engagement?.interactions || 0,
+    averageResponseLength: 0,
+    mostCommonTopics: [],
+    sentimentTrend: ''
+  };
+
+  if (profile.contextHistory) {
+    const responseLengths = profile.contextHistory.map(c => c.response.length);
+    analytics.averageResponseLength = responseLengths.reduce((a, b) => a + b, 0) / responseLengths.length;
+
+    // This is a simplified topic extraction. In a real scenario, you'd use NLP
