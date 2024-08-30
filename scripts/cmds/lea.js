@@ -8,6 +8,7 @@ const RETRY_DELAY = 1000;
 const MAX_HISTORY = 10;
 const AUTHORIZED_AUTHOR = 'Raphael Scholar';
 const USER_DATA_FILE = path.join(__dirname, 'userData.json');
+const CONVERSATION_EXPIRY = 30 * 60 * 1000; // 30 minutes
 
 let userData = {};
 if (fs.existsSync(USER_DATA_FILE)) {
@@ -24,16 +25,22 @@ async function geminiAPI(prompt, userId, retries = 0) {
     });
     return response.data.candidates[0].content.parts[0].text;
   } catch (error) {
+    console.error('Error in geminiAPI:', error);
     if (retries < MAX_RETRIES) {
       await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
       return geminiAPI(prompt, userId, retries + 1);
     }
-    return "Sorry, an error occurred while processing your request.";
+    return "I apologize, but I'm experiencing technical difficulties at the moment. Please try again later.";
   }
 }
 
 async function getAIResponse(input, userId) {
-  return await geminiAPI(input, userId);
+  const userProfile = getUserProfile(userId);
+  const context = userProfile.history.join('\n');
+  const fullPrompt = `${context}\nUser: ${input}\nAI:`;
+  const response = await geminiAPI(fullPrompt, userId);
+  addUserMessageToHistory(userId, `User: ${input}\nAI: ${response}`);
+  return response;
 }
 
 function saveUserData() {
@@ -42,7 +49,7 @@ function saveUserData() {
 
 function getUserProfile(userId) {
   if (!userData[userId]) {
-    userData[userId] = { preferences: {}, history: [] };
+    userData[userId] = { preferences: {}, history: [], lastInteraction: Date.now() };
   }
   return userData[userId];
 }
@@ -53,6 +60,7 @@ function addUserMessageToHistory(userId, message) {
   if (profile.history.length > MAX_HISTORY) {
     profile.history.shift();
   }
+  profile.lastInteraction = Date.now();
   saveUserData();
 }
 
@@ -64,45 +72,18 @@ function getGreetingMessage(userId) {
   return greeting;
 }
 
-const prefixes = ['lea', 'stacy'];
-const conversationHistory = new Map();
+function clearExpiredConversations() {
+  const now = Date.now();
+  for (const userId in userData) {
+    if (now - userData[userId].lastInteraction > CONVERSATION_EXPIRY) {
+      userData[userId].history = [];
+    }
+  }
+  saveUserData();
+}
+
+setInterval(clearExpiredConversations, 60 * 60 * 1000); // Run every hour
 
 module.exports = {
   config: {
     name: 'lea',
-    author: AUTHORIZED_AUTHOR,
-    role: 0,
-    category: 'ai',
-    shortDescription: 'AI-powered interactive assistant',
-    longDescription: 'An AI-powered assistant that can answer questions and engage in conversations.',
-    usage: '{prefix}lea <your question or message>',
-  },
-  onStart: async function ({ api, event, args }) {
-    if (this.config.author !== AUTHORIZED_AUTHOR) {
-      api.sendMessage("Unauthorized author. Access denied.", event.threadID, event.messageID);
-      return;
-    }
-
-    const input = args.join(' ').trim();
-    if (!input) {
-      const greeting = getGreetingMessage(event.senderID);
-      api.sendMessage(greeting, event.threadID, event.messageID);
-      return;
-    }
-
-    const response = await getAIResponse(input, event.senderID);
-    api.sendMessage(response, event.threadID, event.messageID);
-  },
-  onChat: async function ({ api, event, message, args }) {
-    if (this.config.author !== AUTHORIZED_AUTHOR) {
-      api.sendMessage("Unauthorized author. Access denied.", event.threadID, event.messageID);
-      return;
-    }
-
-    const input = args.join(' ').trim();
-    if (input) {
-      const response = await getAIResponse(input, event.senderID);
-      api.sendMessage(response, event.threadID, event.messageID);
-    }
-  }
-};
