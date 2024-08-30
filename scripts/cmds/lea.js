@@ -181,4 +181,108 @@ async function geminiAPI(prompt, userId, retries = 0) {
         { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" }
       ]
     }, {
-      params: { key:
+      params: { key: GEMINI_API_KEY },
+      headers: { 'Content-Type': 'application/json' }
+    });
+    return response.data.candidates[0].content.parts[0].text;
+  } catch (error) {
+    console.error('Error in geminiAPI:', error);
+    if (retries < MAX_RETRIES) {
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+      return geminiAPI(prompt, userId, retries + 1);
+    }
+    return "I apologize, but I'm experiencing technical difficulties at the moment. Please try again later.";
+  }
+}
+
+// New feature: Sentiment analysis
+async function analyzeSentiment(text) {
+  // This is a placeholder. In a real implementation, you'd use a sentiment analysis API or library
+  const sentiment = text.toLowerCase().includes('happy') ? 'positive' : 
+                    text.toLowerCase().includes('sad') ? 'negative' : 'neutral';
+  return sentiment;
+}
+
+// New feature: Language detection
+async function detectLanguage(text) {
+  // This is a placeholder. In a real implementation, you'd use a language detection API or library
+  return 'en'; // Assuming English for now
+}
+
+// Enhanced getAIResponse function
+async function getAIResponse(input, userId) {
+  const userProfile = getUserProfile(userId);
+  const context = userProfile.history.join('\n');
+  const sentiment = await analyzeSentiment(input);
+  const language = await detectLanguage(input);
+  
+  const fullPrompt = `
+    Context: ${context}
+    User Input: ${input}
+    Detected Sentiment: ${sentiment}
+    Detected Language: ${language}
+    
+    Please provide a response that takes into account the user's sentiment and language.
+    AI:`;
+  
+  let response = await geminiAPI(fullPrompt, userId);
+  response = generatePersonalizedResponse(userId, response);
+  addUserMessageToHistory(userId, `User: ${input}\nAI: ${response}`);
+  return response;
+}
+
+// New feature: Command handler
+function handleCommand(command, args, userId) {
+  switch (command) {
+    case 'clear':
+      clearUserHistory(userId);
+      return "Your conversation history has been cleared.";
+    case 'setname':
+      const name = args.join(' ');
+      setUserPreference(userId, 'name', name);
+      return `Great! I'll remember your name as ${name}.`;
+    case 'help':
+      return `
+        Available commands:
+        - clear: Clear your conversation history
+        - setname <name>: Set your name
+        - help: Show this help message
+      `;
+    default:
+      return null;
+  }
+}
+
+// Enhanced onStart function
+onStart: async function ({ api, event, args, message }) {
+  const { threadID, senderID, messageID } = event;
+  const input = args.join(' ');
+
+  if (!input) {
+    return message.reply(getGreetingMessage(senderID));
+  }
+
+  if (input.startsWith('!')) {
+    const [command, ...commandArgs] = input.slice(1).split(' ');
+    const result = handleCommand(command, commandArgs, senderID);
+    if (result) {
+      return message.reply(result);
+    }
+  }
+
+  const aiResponse = await getAIResponse(input, senderID);
+  return message.reply(aiResponse);
+},
+
+// New feature: Periodic tips
+function sendPeriodicTip(api, threadID) {
+  const tips = [
+    "Did you know you can clear your conversation history by typing '!clear'?",
+    "You can set your name using the '!setname' command for a more personalized experience!",
+    "Type '!help' to see all available commands.",
+  ];
+  const randomTip = tips[Math.floor(Math.random() * tips.length)];
+  api.sendMessage(randomTip, threadID);
+}
+
+setInterval(() => {
