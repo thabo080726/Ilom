@@ -362,4 +362,99 @@ async function geminiAPI(prompt, userId, retries = 0) {
         { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
         { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
         { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
-        { category: "HARM_CATEGORY_
+        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" }
+      ]
+    }, {
+      params: { key: GEMINI_API_KEY },
+      headers: { 'Content-Type': 'application/json' }
+    });
+    return response.data.candidates[0].content.parts[0].text;
+  } catch (error) {
+    logError(error, 'geminiAPI');
+    if (retries < MAX_RETRIES) {
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+      return geminiAPI(prompt, userId, retries + 1);
+    }
+    return "I apologize, but I'm experiencing technical difficulties at the moment. Please try again later.";
+  }
+}
+
+// New feature: User engagement tracking
+function trackUserEngagement(userId, action) {
+  const profile = getUserProfile(userId);
+  if (!profile.engagement) {
+    profile.engagement = { interactions: 0, lastActive: null };
+  }
+  profile.engagement.interactions++;
+  profile.engagement.lastActive = Date.now();
+  saveUserData();
+}
+
+// New feature: Personalized recommendations
+async function getPersonalizedRecommendation(userId) {
+  const profile = getUserProfile(userId);
+  const interests = profile.preferences.interests || [];
+  const prompt = `Based on the user's interests: ${interests.join(', ')}, please provide a personalized recommendation for an activity or topic they might enjoy.`;
+  return await geminiAPI(prompt, userId);
+}
+
+// Enhanced onStart function with new features
+onStart: async function ({ api, event, args, message }) {
+  const { threadID, senderID, messageID } = event;
+  const input = args.join(' ');
+
+  trackUserEngagement(senderID, 'command');
+
+  if (!input) {
+    return message.reply(getGreetingMessage(senderID));
+  }
+
+  if (input.startsWith('!')) {
+    const [command, ...commandArgs] = input.slice(1).split(' ');
+    switch (command) {
+      case 'clear':
+      case 'setname':
+      case 'help':
+        const result = handleCommand(command, commandArgs, senderID);
+        return message.reply(result);
+      case 'feedback':
+        const feedback = commandArgs.join(' ');
+        return message.reply(handleUserFeedback(feedback, senderID));
+      case 'summary':
+        const summary = await summarizeConversation(senderID);
+        return message.reply(`Here's a summary of our conversation:\n${summary}`);
+      case 'recommend':
+        const recommendation = await getPersonalizedRecommendation(senderID);
+        return message.reply(`Here's a personalized recommendation for you:\n${recommendation}`);
+      default:
+        return message.reply("Unknown command. Type '!help' for a list of available commands.");
+    }
+  }
+
+  const aiResponse = await getAIResponse(input, senderID);
+  return message.reply(aiResponse);
+},
+
+// New feature: Conversation context management
+function manageConversationContext(userId, input, response) {
+  const profile = getUserProfile(userId);
+  const context = {
+    input,
+    response,
+    timestamp: Date.now()
+  };
+  if (!profile.contextHistory) {
+    profile.contextHistory = [];
+  }
+  profile.contextHistory.push(context);
+  if (profile.contextHistory.length > 5) { // Keep last 5 interactions for context
+    profile.contextHistory.shift();
+  }
+  saveUserData();
+}
+
+// Enhanced getAIResponse function with context management
+async function getAIResponse(input, userId) {
+  const userProfile = getUserProfile(userId);
+  const context = userProfile.contextHistory ? userProfile.contextHistory.map(c => `User: ${c.input}\nAI: ${c.response}`).join('\n') : '';
+  const sentiment = await analyzeSentiment(input);
