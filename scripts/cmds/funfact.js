@@ -1,4 +1,4 @@
-+CMD install funfact.js const axios = require('axios');
+const axios = require('axios');
 const fs = require('fs');
 
 // Credit to Raphael Scholar for the original script
