@@ -458,7 +458,7 @@ async function getAIResponse(input, userId) {
   const userProfile = getUserProfile(userId);
   const context = userProfile.contextHistory ? userProfile.contextHistory.map(c => `User: ${c.input}\nAI: ${c.response}`).join('\n') : '';
   const sentiment = await analyzeSentiment(input);
-  const language = await detectLanguage(input);
+const language = await detectLanguage(input);
 
 const fullPrompt = `
   Context: ${context}
@@ -491,25 +491,17 @@ const translations = {
 };
 
 function getTranslation(key, language) {
-  return translations[language]?.[key] || translations.en[key];
+  return translations[language]?.[key] || translations['en'][key];
 }
 
-// New feature: User preferences
-function setUserLanguagePreference(userId, language) {
-  const profile = getUserProfile(userId);
-  profile.preferences.language = language;
-  saveUserData();
-}
-
-// Enhanced onStart function with multi-language support and more features
+// Enhanced onStart function with multi-language support
 onStart: async function ({ api, event, args, message }) {
   const { threadID, senderID, messageID } = event;
   const input = args.join(' ');
 
   trackUserEngagement(senderID, 'command');
 
-  const userProfile = getUserProfile(senderID);
-  const userLanguage = userProfile.preferences.language || 'en';
+  const userLanguage = getUserProfile(senderID).preferences.language || 'en';
 
   if (!input) {
     return message.reply(getTranslation('greeting', userLanguage));
@@ -534,8 +526,12 @@ onStart: async function ({ api, event, args, message }) {
         return message.reply(`Here's a personalized recommendation for you:\n${recommendation}`);
       case 'setlanguage':
         const newLanguage = commandArgs[0];
-        setUserLanguagePreference(senderID, newLanguage);
-        return message.reply(`Language preference set to ${newLanguage}`);
+        if (translations[newLanguage]) {
+          setUserPreference(senderID, 'language', newLanguage);
+          return message.reply(`Language set to ${newLanguage}`);
+        } else {
+          return message.reply("Unsupported language. Please choose from: " + Object.keys(translations).join(", "));
+        }
       default:
         return message.reply("Unknown command. Type '!help' for a list of available commands.");
     }
@@ -545,18 +541,184 @@ onStart: async function ({ api, event, args, message }) {
   return message.reply(aiResponse);
 },
 
+// New feature: User activity reminders
+function checkUserInactivity() {
+  const now = Date.now();
+  for (const userId in userData) {
+    const profile = userData[userId];
+    if (profile.engagement && now - profile.engagement.lastActive > 7 * 24 * 60 * 60 * 1000) { // 7 days
+      sendInactivityReminder(userId);
+    }
+  }
+}
+
+function sendInactivityReminder(userId) {
+  const message = "Hey there! We haven't chatted in a while. Is there anything I can help you with?";
+  // Implement the logic to send this message to the user
+  console.log(`Sending reminder to user ${userId}: ${message}`);
+}
+// ... (previous code remains unchanged)
+
+// New feature: User activity reminders
+function checkUserInactivity() {
+  const now = Date.now();
+  for (const userId in userData) {
+    const profile = userData[userId];
+    if (profile.engagement && now - profile.engagement.lastActive > 7 * 24 * 60 * 60 * 1000) { // 7 days
+      sendInactivityReminder(userId);
+    }
+  }
+}
+
+function sendInactivityReminder(userId) {
+  const message = "Hey there! We haven't chatted in a while. Is there anything I can help you with?";
+  // Implement the logic to send this message to the user
+  console.log(`Sending reminder to user ${userId}: ${message}`);
+}
+
+// Set up a daily check for user inactivity
+setInterval(checkUserInactivity, 24 * 60 * 60 * 1000);
+
 // New feature: Conversation analytics
-function analyzeConversation(userId) {
+function generateConversationAnalytics(userId) {
   const profile = getUserProfile(userId);
-  const analytics = {
-    totalInteractions: profile.engagement?.interactions || 0,
-    averageResponseLength: 0,
-    mostCommonTopics: [],
-    sentimentTrend: ''
+  const totalInteractions = profile.engagement ? profile.engagement.interactions : 0;
+  const averageSentimentScore = calculateAverageSentiment(profile.contextHistory);
+  const mostDiscussedTopics = analyzeTopics(profile.contextHistory);
+
+  return {
+    totalInteractions,
+    averageSentimentScore,
+    mostDiscussedTopics
   };
+}
 
-  if (profile.contextHistory) {
-    const responseLengths = profile.contextHistory.map(c => c.response.length);
-    analytics.averageResponseLength = responseLengths.reduce((a, b) => a + b, 0) / responseLengths.length;
+function calculateAverageSentiment(contextHistory) {
+  // Implement sentiment calculation logic
+  return 0.5; // Placeholder
+}
 
-    // This is a simplified topic extraction. In a real scenario, you'd use NLP
+function analyzeTopics(contextHistory) {
+  // Implement topic analysis logic
+  return ['AI', 'Technology']; // Placeholder
+}
+
+// Enhanced onStart function with analytics
+onStart: async function ({ api, event, args, message }) {
+  const { threadID, senderID, messageID } = event;
+  const input = args.join(' ');
+
+  trackUserEngagement(senderID, 'command');
+
+  const userLanguage = getUserProfile(senderID).preferences.language || 'en';
+
+  if (!input) {
+    return message.reply(getTranslation('greeting', userLanguage));
+  }
+
+  if (input.startsWith('!')) {
+    const [command, ...commandArgs] = input.slice(1).split(' ');
+    switch (command) {
+      // ... (previous cases remain unchanged)
+      case 'analytics':
+        const analytics = generateConversationAnalytics(senderID);
+        return message.reply(`Conversation Analytics:\nTotal Interactions: ${analytics.totalInteractions}\nAverage Sentiment: ${analytics.averageSentimentScore}\nMost Discussed Topics: ${analytics.mostDiscussedTopics.join(', ')}`);
+      default:
+        return message.reply("Unknown command. Type '!help' for a list of available commands.");
+    }
+  }
+
+  const aiResponse = await getAIResponse(input, senderID);
+  return message.reply(aiResponse);
+},
+
+// New feature: Conversation branching
+function createConversationBranch(userId) {
+  const profile = getUserProfile(userId);
+  if (!profile.branches) {
+    profile.branches = [];
+  }
+  const newBranch = {
+    id: Date.now(),
+    contextHistory: [...profile.contextHistory]
+  };
+  profile.branches.push(newBranch);
+  profile.currentBranch = newBranch.id;
+  saveUserData();
+  return newBranch.id;
+}
+
+function switchConversationBranch(userId, branchId) {
+  const profile = getUserProfile(userId);
+  const branch = profile.branches.find(b => b.id === branchId);
+  if (branch) {
+    profile.currentBranch = branchId;
+    profile.contextHistory = [...branch.contextHistory];
+    saveUserData();
+    return true;
+  }
+  return false;
+}
+
+// Enhanced onStart function with branching
+onStart: async function ({ api, event, args, message }) {
+  const { threadID, senderID, messageID } = event;
+  const input = args.join(' ');
+
+  trackUserEngagement(senderID, 'command');
+
+  const userLanguage = getUserProfile(senderID).preferences.language || 'en';
+
+  if (!input) {
+    return message.reply(getTranslation('greeting', userLanguage));
+  }
+
+  if (input.startsWith('!')) {
+    const [command, ...commandArgs] = input.slice(1).split(' ');
+    switch (command) {
+      // ... (previous cases remain unchanged)
+      case 'newbranch':
+        const newBranchId = createConversationBranch(senderID);
+        return message.reply(`New conversation branch created with ID: ${newBranchId}`);
+      case 'switchbranch':
+        const branchId = parseInt(commandArgs[0]);
+        if (switchConversationBranch(senderID, branchId)) {
+          return message.reply(`Switched to conversation branch: ${branchId}`);
+        } else {
+          return message.reply(`Branch not found: ${branchId}`);
+        }
+      default:
+        return message.reply("Unknown command. Type '!help' for a list of available commands.");
+    }
+  }
+
+  const aiResponse = await getAIResponse(input, senderID);
+  return message.reply(aiResponse);
+},
+
+// Final touches and cleanup
+function cleanup() {
+  saveUserData();
+  console.log("Cleanup completed. User data saved.");
+}
+
+process.on('SIGINT', () => {
+  console.log("Received SIGINT. Cleaning up...");
+  cleanup();
+  process.exit(0);
+});
+
+// Export the module
+module.exports = {
+  config: {
+    name: 'lea',
+    description: "Interact with Lea, an AI assistant powered by Gemini",
+    usage: "{prefix}lea <message>",
+    cooldown: 3,
+    permissions: [0, 1, 2],
+  },
+  onStart: onStart,
+  onChat: onChat
+};
+
+console.log("Lea AI Assistant module loaded successfully.");
