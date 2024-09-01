@@ -5,10 +5,10 @@ const description = "";
 module.exports.config = {
   name: "stacy",
   aliases: ["stacy", "st", "chat"],
-  haspermssion: 0,
-  version: 1.1,
+  hasPermission: 0,
+  version: "1.1",
   credits: "lance x Raphael ilom",
-  cooldowns: 2,
+  cooldown: 2,
   usePrefix: false,
   description: "stacy (query)",
   commandCategory: "AI",
@@ -16,64 +16,63 @@ module.exports.config = {
 };
 
 module.exports.handleReply = async function ({ api, event }) {
-  const { messageID, threadID } = event;
-  const id = event.senderID;
-  const inp = event.body;
-  const link = `https://character-ai-by-lance.onrender.com/api/chat?message=${encodeURIComponent(inp)}&chat_id=${id}&custom-ai-prompt=${description}`;
+  const { messageID, threadID, senderID, body } = event;
+  const link = `https://character-ai-by-lance.onrender.com/api/chat?message=${encodeURIComponent(body)}&chat_id=${senderID}&custom-ai-prompt=${description}`;
 
   try {
     const response = await axios.get(link);
-    api.sendMessage(response.data.text, threadID, messageID);
+    await api.sendMessage(response.data.text, threadID, messageID);
   } catch (error) {
     console.error(`Error: ${error.message}`);
-    api.sendMessage("An error occurred while processing your request.", threadID, messageID);
+    await api.sendMessage("An error occurred while processing your request.", threadID, messageID);
   }
 };
 
 module.exports.run = async function ({ api, args, event }) {
-  const { threadID, messageID } = event;
+  const { threadID, messageID, senderID } = event;
   const inp = args.join(' ');
-  const id = event.senderID;
-  const link = `https://character-ai-by-lance.onrender.com/api/chat?message=${encodeURIComponent(inp)}&chat_id=${id}&custom-ai-prompt=${description}`;
 
   // Rate limiting
-  if (rateLimit.has(id) && (Date.now() - rateLimit.get(id)) < 2000) {
+  if (rateLimit.has(senderID) && (Date.now() - rateLimit.get(senderID)) < 2000) {
     return api.sendMessage("Please wait a moment before sending another request.", threadID, messageID);
   }
-  rateLimit.set(id, Date.now());
+  rateLimit.set(senderID, Date.now());
 
   if (!inp) {
     return api.sendMessage("Please provide a query.", threadID, messageID);
   }
 
-  if (inp.toLowerCase() === 'clear') {
+  const command = inp.toLowerCase();
+
+  if (command === 'clear') {
     try {
-      const response = await axios.get(`https://character-ai-by-lance.onrender.com/api/history?cmd=yes&chat_id=${id}`);
+      const response = await axios.get(`https://character-ai-by-lance.onrender.com/api/history?cmd=yes&chat_id=${senderID}`);
       const message = response.data.message ? 'Successfully deleted chat history.' : 'Chat history not deleted.';
-      api.sendMessage(message, threadID, messageID);
+      await api.sendMessage(message, threadID, messageID);
     } catch (error) {
       console.error(`Error: ${error.message}`);
-      api.sendMessage("An error occurred while clearing chat history.", threadID, messageID);
+      await api.sendMessage("An error occurred while clearing chat history.", threadID, messageID);
     }
-  } else if (inp.toLowerCase() === 'help') {
+  } else if (command === 'help') {
     const helpMessage = `
       ** Command Help**
       - **chat [question]**: Ask Stacy a question.
       - **chat clear**: Clear chat history.
       - **chat help**: Show this help message.
     `;
-    api.sendMessage(helpMessage, threadID, messageID);
+    await api.sendMessage(helpMessage, threadID, messageID);
   } else {
+    const link = `https://character-ai-by-lance.onrender.com/api/chat?message=${encodeURIComponent(inp)}&chat_id=${senderID}&custom-ai-prompt=${description}`;
     try {
       const response = await axios.get(link);
-      api.sendMessage(response.data.text, threadID, messageID);
+      await api.sendMessage(response.data.text, threadID, messageID);
       global.client.handleReply.push({
         name: this.config.name,
-        author: event.senderID
+        author: senderID
       });
     } catch (error) {
       console.error(`Error: ${error.message}`);
-      api.sendMessage("An error occurred while processing your request.", threadID, messageID);
+      await api.sendMessage("An error occurred while processing your request.", threadID, messageID);
     }
   }
 };
