@@ -52,14 +52,14 @@ module.exports = {
 
       case 'help':
         const helpMessage = `
-          **Chatbot Command Help**
-          - **chatbot [question]**: Ask the chatbot a question.
-          - **chatbot clear**: Clear chat history.
-          - **chatbot help**: Show this help message.
-          - **chatbot history**: Show conversation history.
-          - **chatbot image [prompt]**: Generate an image based on the prompt.
-          - **chatbot weather [location]**: Get current weather information.
-          - **chatbot forecast [location]**: Get extended weather forecast.
+          **Stacy Command Help**
+          - **Stacy [question]**: Ask the chatbot a question.
+          - **Stacy clear**: Clear chat history.
+          - **Stacy help**: Show this help message.
+          - **Stacy history**: Show conversation history.
+          - **Stacy image [prompt]**: Generate an image based on the prompt.
+          - **Stacy weather [location]**: Get current weather information.
+          - **Stacy forecast [location]**: Get extended weather forecast.
         `;
         api.sendMessage(helpMessage, threadID, messageID);
         break;
@@ -90,4 +90,83 @@ module.exports = {
         }
         try {
           const weatherInfo = await this.getWeather(location);
-          api.sendMessage(weatherInfo
+          api.sendMessage(weatherInfo, threadID, messageID);
+        } catch (error) {
+          api.sendMessage(error.message, threadID, messageID);
+        }
+        break;
+
+      case 'forecast':
+        const forecastLocation = args.slice(1).join(' ');
+        if (!forecastLocation) {
+          return api.sendMessage("Please provide a location for the weather forecast.", threadID, messageID);
+        }
+        try {
+          const forecastInfo = await this.getWeatherForecast(forecastLocation);
+          api.sendMessage(forecastInfo, threadID, messageID);
+        } catch (error) {
+          api.sendMessage(error.message, threadID, messageID);
+        }
+        break;
+
+      default:
+        try {
+          const response = await this.chatWithAI(input, senderID);
+          api.sendMessage(response, threadID, messageID);
+        } catch (error) {
+          api.sendMessage(error.message, threadID, messageID);
+        }
+        break;
+    }
+  },
+
+  chatWithAI: async function (input, senderID) {
+    const history = conversationHistory.get(senderID) || [];
+    history.push({ role: 'user', content: input });
+
+    try {
+      const response = await this.sendRequest('/chat', { chat: input, chat_id: senderID });
+      history.push({ role: 'assistant', content: response });
+      conversationHistory.set(senderID, history);
+      return response;
+    } catch (error) {
+      throw new Error('Failed to get a response from the AI.');
+    }
+  },
+
+  generateImage: async function (prompt) {
+    try {
+      const response = await this.sendRequest('/image', { prompt });
+      return response.image_url;
+    } catch (error) {
+      throw new Error('Failed to generate image.');
+    }
+  },
+
+  getWeather: async function (location) {
+    try {
+      const response = await this.sendRequest('/weather', { location });
+      return `Current weather in ${location}:\n${response}`;
+    } catch (error) {
+      throw new Error('Failed to get weather information.');
+    }
+  },
+
+  getWeatherForecast: async function (location) {
+    try {
+      const response = await this.sendRequest('/forecast', { location });
+      return `Weather forecast for ${location}:\n${response}`;
+    } catch (error) {
+      throw new Error('Failed to get weather forecast.');
+    }
+  },
+
+  sendRequest: async function (endpoint, data) {
+    try {
+      const response = await axios.post(`https://api.example.com${endpoint}`, data);
+      return response.data;
+    } catch (error) {
+      throw new Error('Failed to send request to the API.');
+    }
+  }
+};
